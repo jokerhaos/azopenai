@@ -1263,7 +1263,7 @@ func (c *ChatMessageTextContentItem) GetChatMessageContentItem() *ChatMessageCon
 // ChatRequestAssistantMessage - A request chat message representing response or action from the assistant.
 type ChatRequestAssistantMessage struct {
 	// REQUIRED; The content of the message.
-	Content *ChatRequestAssistantMessageContent
+	Content ChatRequestAssistantMessageContent
 
 	// REQUIRED; The chat role associated with this message.
 	role *ChatRole
@@ -1322,7 +1322,7 @@ func (c *ChatRequestMessage) GetChatRequestMessage() *ChatRequestMessage { retur
 // a chat completions response.
 type ChatRequestSystemMessage struct {
 	// REQUIRED; The contents of the system message.
-	Content *ChatRequestSystemMessageContent
+	Content ChatRequestSystemMessageContent
 
 	// REQUIRED; The chat role associated with this message.
 	role *ChatRole
@@ -1341,7 +1341,7 @@ func (c *ChatRequestSystemMessage) GetChatRequestMessage() *ChatRequestMessage {
 // ChatRequestToolMessage - A request chat message representing requested output from a configured tool.
 type ChatRequestToolMessage struct {
 	// REQUIRED; The content of the message.
-	Content *ChatRequestToolMessageContent
+	Content ChatRequestToolMessageContent
 
 	// REQUIRED; The chat role associated with this message.
 	role *ChatRole
@@ -1360,7 +1360,7 @@ func (c *ChatRequestToolMessage) GetChatRequestMessage() *ChatRequestMessage {
 // ChatRequestUserMessage - A request chat message representing user input to the assistant.
 type ChatRequestUserMessage struct {
 	// REQUIRED; The contents of the user message, with available input types varying by selected model.
-	Content *ChatRequestUserMessageContent
+	Content ChatRequestUserMessageContent
 
 	// REQUIRED; The chat role associated with this message.
 	role *ChatRole
