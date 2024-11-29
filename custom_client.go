@@ -35,6 +35,8 @@ type ClientOptions struct {
 	azcore.ClientOptions
 }
 
+const apiVersion = "2024-08-01-preview"
+
 // NewClient creates a new instance of Client that connects to an Azure OpenAI endpoint.
 //   - endpoint - Azure OpenAI service endpoint, for example: https://{your-resource-name}.openai.azure.com
 //   - credential - used to authorize requests. Usually a credential from [github.com/Azure/azure-sdk-for-go/sdk/azidentity].
@@ -44,8 +46,13 @@ func NewClient(endpoint string, credential azcore.TokenCredential, options *Clie
 		options = &ClientOptions{}
 	}
 
-	authPolicy := runtime.NewBearerTokenPolicy(credential, []string{tokenScope}, nil)
-	azcoreClient, err := azcore.NewClient(clientName, version, runtime.PipelineOptions{PerRetry: []policy.Policy{authPolicy}}, &options.ClientOptions)
+	authPolicy := runtime.NewBearerTokenPolicy(credential, []string{tokenScope}, &policy.BearerTokenOptions{
+		InsecureAllowCredentialWithHTTP: allowInsecure(options),
+	})
+
+	azcoreClient, err := azcore.NewClient(clientName, version, runtime.PipelineOptions{
+		PerRetry: []policy.Policy{authPolicy, tempAPIVersionPolicy{}},
+	}, &options.ClientOptions)
 
 	if err != nil {
 		return nil, err
@@ -69,8 +76,13 @@ func NewClientWithKeyCredential(endpoint string, credential *azcore.KeyCredentia
 		options = &ClientOptions{}
 	}
 
-	authPolicy := runtime.NewKeyCredentialPolicy(credential, "api-key", nil)
-	azcoreClient, err := azcore.NewClient(clientName, version, runtime.PipelineOptions{PerRetry: []policy.Policy{authPolicy}}, &options.ClientOptions)
+	authPolicy := runtime.NewKeyCredentialPolicy(credential, "api-key", &runtime.KeyCredentialPolicyOptions{
+		InsecureAllowCredentialWithHTTP: allowInsecure(options),
+	})
+
+	azcoreClient, err := azcore.NewClient(clientName, version, runtime.PipelineOptions{
+		PerRetry: []policy.Policy{authPolicy, tempAPIVersionPolicy{}},
+	}, &options.ClientOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -94,11 +106,15 @@ func NewClientForOpenAI(endpoint string, credential *azcore.KeyCredential, optio
 	}
 
 	kp := runtime.NewKeyCredentialPolicy(credential, "authorization", &runtime.KeyCredentialPolicyOptions{
-		Prefix: "Bearer ",
+		Prefix:                          "Bearer ",
+		InsecureAllowCredentialWithHTTP: allowInsecure(options),
 	})
 
 	azcoreClient, err := azcore.NewClient(clientName, version, runtime.PipelineOptions{
-		PerRetry: []policy.Policy{kp, newOpenAIPolicy()},
+		PerRetry: []policy.Policy{
+			kp,
+			newOpenAIPolicy(),
+		},
 	}, &options.ClientOptions)
 
 	if err != nil {
@@ -180,6 +196,7 @@ func (client *Client) GetCompletionsStream(ctx context.Context, body Completions
 	}
 
 	if !runtime.HasStatusCode(resp, http.StatusOK) {
+		_ = resp.Body.Close()
 		return GetCompletionsStreamResponse{}, runtime.NewResponseError(resp)
 	}
 
@@ -214,6 +231,7 @@ func (client *Client) GetChatCompletionsStream(ctx context.Context, body ChatCom
 	}
 
 	if !runtime.HasStatusCode(resp, http.StatusOK) {
+		_ = resp.Body.Close()
 		return GetChatCompletionsStreamResponse{}, runtime.NewResponseError(resp)
 	}
 
@@ -222,15 +240,19 @@ func (client *Client) GetChatCompletionsStream(ctx context.Context, body ChatCom
 	}, nil
 }
 
-func (client *Client) formatURL(path string, deploymentID string) string {
+func (client *Client) formatURL(path string, deployment *string) string {
 	switch path {
 	// https://learn.microsoft.com/en-us/azure/cognitive-services/openai/reference#image-generation
 	case "/images/generations:submit":
-		return runtime.JoinPaths(client.endpoint, "openai", path)
+		return runtime.JoinPaths(client.endpoint, path)
 	default:
 		if client.azure {
-			escapedDeplID := url.PathEscape(deploymentID)
-			return runtime.JoinPaths(client.endpoint, "openai", "deployments", escapedDeplID, path)
+			if deployment != nil {
+				escapedDeplID := url.PathEscape(*deployment)
+				return runtime.JoinPaths(client.endpoint, "openai", "deployments", escapedDeplID, path)
+			} else {
+				return runtime.JoinPaths(client.endpoint, "openai", path)
+			}
 		}
 
 		return runtime.JoinPaths(client.endpoint, path)
@@ -246,35 +268,27 @@ type clientData struct {
 	azure    bool
 }
 
-func getDeployment[T SpeechGenerationOptions | AudioTranscriptionOptions | AudioTranslationOptions | ChatCompletionsOptions | CompletionsOptions | EmbeddingsOptions | *getAudioTranscriptionInternalOptions | *getAudioTranslationInternalOptions | ImageGenerationOptions](v T) string {
-	var p *string
-
+func getDeployment[T SpeechGenerationOptions | AudioTranscriptionOptions | AudioTranslationOptions | ChatCompletionsOptions | CompletionsOptions | EmbeddingsOptions | *getAudioTranscriptionInternalOptions | *getAudioTranslationInternalOptions | ImageGenerationOptions](v T) *string {
 	switch a := any(v).(type) {
-	case SpeechGenerationOptions:
-		p = a.DeploymentName
 	case AudioTranscriptionOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case AudioTranslationOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case ChatCompletionsOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case CompletionsOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case EmbeddingsOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case *getAudioTranscriptionInternalOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case *getAudioTranslationInternalOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	case ImageGenerationOptions:
-		p = a.DeploymentName
+		return a.DeploymentName
 	}
 
-	if p != nil {
-		return *p
-	}
-
-	return ""
+	return nil
 }
 
 // ChatRequestUserMessageContent contains the user prompt - either as a single string
@@ -286,14 +300,14 @@ type ChatRequestUserMessageContent struct {
 }
 
 // NewChatRequestUserMessageContent creates a [azopenai.ChatRequestUserMessageContent].
-func NewChatRequestUserMessageContent[T string | []ChatCompletionRequestMessageContentPartClassification](v T) ChatRequestUserMessageContent {
+func NewChatRequestUserMessageContent[T string | []ChatCompletionRequestMessageContentPartClassification](v T) *ChatRequestUserMessageContent {
 	switch actualV := any(v).(type) {
 	case string:
-		return ChatRequestUserMessageContent{value: &actualV}
+		return &ChatRequestUserMessageContent{value: &actualV}
 	case []ChatCompletionRequestMessageContentPartClassification:
-		return ChatRequestUserMessageContent{value: actualV}
+		return &ChatRequestUserMessageContent{value: actualV}
 	}
-	return ChatRequestUserMessageContent{}
+	return &ChatRequestUserMessageContent{}
 }
 
 // MarshalJSON implements the json.Marshaller interface for type Error.
@@ -304,4 +318,18 @@ func (c ChatRequestUserMessageContent) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the json.Unmarshaller interface for type ChatRequestUserMessageContent.
 func (c *ChatRequestUserMessageContent) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &c.value)
+}
+
+func allowInsecure(options *ClientOptions) bool {
+	return options != nil && options.InsecureAllowCredentialWithHTTP
+}
+
+// NOTE: This is a workaround for an emitter issue, see: https://github.com/Azure/azure-sdk-for-go/issues/23417
+type tempAPIVersionPolicy struct{}
+
+func (tavp tempAPIVersionPolicy) Do(req *policy.Request) (*http.Response, error) {
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", apiVersion)
+	req.Raw().URL.RawQuery = reqQP.Encode()
+	return req.Next()
 }

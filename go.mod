@@ -1,4 +1,4 @@
-module github.com/Azure/azure-sdk-for-go/sdk/ai/azopenai
+module github.com/jokerhaos/azopenai
 
 go 1.18
 
