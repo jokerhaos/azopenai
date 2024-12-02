@@ -191,7 +191,7 @@ func unmarshalChatRequestMessageClassification(rawMsg json.RawMessage) (ChatRequ
 	default:
 		b = &ChatRequestMessage{}
 	}
-	if err := json.Unmarshal(rawMsg, b); err != nil {
+	if err := b.UnmarshalJSON(rawMsg); err != nil {
 		return nil, err
 	}
 	return b, nil

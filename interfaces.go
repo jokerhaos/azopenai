@@ -89,6 +89,8 @@ type ChatMessageContentItemClassification interface {
 type ChatRequestMessageClassification interface {
 	// GetChatRequestMessage returns the ChatRequestMessage content of the underlying type.
 	GetChatRequestMessage() *ChatRequestMessage
+	MarshalJSON() ([]byte, error)
+	UnmarshalJSON(data []byte) error
 }
 
 // OnYourDataAuthenticationOptionsClassification provides polymorphic access to related types.

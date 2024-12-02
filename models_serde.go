@@ -2549,7 +2549,10 @@ func (c *ChatRequestAssistantMessage) UnmarshalJSON(data []byte) error {
 		var err error
 		switch key {
 		case "content":
-			err = unpopulate(val, "Content", &c.Content)
+			if c.Content == nil{
+				c.Content = &ChatRequestAssistantMessageContent{}
+			}
+			err = unpopulate(val, "Content", &c.Content.value)
 			delete(rawMsg, key)
 		case "function_call":
 			err = unpopulate(val, "FunctionCall", &c.FunctionCall)
@@ -2655,7 +2658,10 @@ func (c *ChatRequestSystemMessage) UnmarshalJSON(data []byte) error {
 		var err error
 		switch key {
 		case "content":
-			err = unpopulate(val, "Content", &c.Content)
+			if c.Content == nil {
+				c.Content = &ChatRequestSystemMessageContent{}
+			}
+			err = unpopulate(val, "Content", &c.Content.value)
 			delete(rawMsg, key)
 		case "role":
 			err = unpopulate(val, "role", &c.role)
@@ -2690,7 +2696,10 @@ func (c *ChatRequestToolMessage) UnmarshalJSON(data []byte) error {
 		var err error
 		switch key {
 		case "content":
-			err = unpopulate(val, "Content", &c.Content)
+			if c.Content == nil {
+				c.Content = &ChatRequestToolMessageContent{}
+			}
+			err = unpopulate(val, "Content", &c.Content.value)
 			delete(rawMsg, key)
 		case "role":
 			err = unpopulate(val, "role", &c.role)
@@ -2725,7 +2734,10 @@ func (c *ChatRequestUserMessage) UnmarshalJSON(data []byte) error {
 		var err error
 		switch key {
 		case "content":
-			err = unpopulate(val, "Content", &c.Content)
+			if c.Content == nil {
+				c.Content = &ChatRequestUserMessageContent{}
+			}
+			err = unpopulate(val, "Content", &c.Content.value)
 			delete(rawMsg, key)
 		case "role":
 			err = unpopulate(val, "role", &c.role)
