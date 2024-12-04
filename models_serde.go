@@ -9,6 +9,7 @@
 package azopenai
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -1796,7 +1797,15 @@ func (c ChatCompletions) MarshalJSON() ([]byte, error) {
 	populate(objectMap, "prompt_filter_results", c.PromptFilterResults)
 	populate(objectMap, "system_fingerprint", c.SystemFingerprint)
 	populate(objectMap, "usage", c.Usage)
-	return json.Marshal(objectMap)
+	return JSONMarshal(objectMap)
+}
+
+func JSONMarshal(t any) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(t)
+	return bytes.TrimSpace(buffer.Bytes()), err
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface for type ChatCompletions.
