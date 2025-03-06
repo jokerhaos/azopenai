@@ -135,7 +135,12 @@ type streamCompletionsOptions struct {
 	// we strip out the 'stream' field from the options exposed to the customer so
 	// now we need to add it back in.
 	any
-	Stream bool `json:"stream"`
+	Stream        bool           `json:"stream"`
+	StreamOptions *streamOptions `json:"stream_options"`
+}
+
+type streamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 func (o streamCompletionsOptions) MarshalJSON() ([]byte, error) {
@@ -151,6 +156,11 @@ func (o streamCompletionsOptions) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	objectMap["stream"] = o.Stream
+	if o.StreamOptions != nil {
+		objectMap["stream_options"] = map[string]interface{}{
+			"include_usage": o.StreamOptions.IncludeUsage,
+		}
+	}
 	return json.Marshal(objectMap)
 }
 
