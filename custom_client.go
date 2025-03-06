@@ -193,6 +193,9 @@ func (client *Client) GetCompletionsStream(ctx context.Context, body Completions
 	if err := runtime.MarshalAsJSON(req, streamCompletionsOptions{
 		any:    body,
 		Stream: true,
+		StreamOptions: &streamOptions{
+			IncludeUsage: true,
+		},
 	}); err != nil {
 		return GetCompletionsStreamResponse{}, err
 	}
