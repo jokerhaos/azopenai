@@ -231,6 +231,9 @@ func (client *Client) GetChatCompletionsStream(ctx context.Context, body ChatCom
 	if err := runtime.MarshalAsJSON(req, streamCompletionsOptions{
 		any:    body,
 		Stream: true,
+		StreamOptions: &streamOptions{
+			IncludeUsage: true,
+		},
 	}); err != nil {
 		return GetChatCompletionsStreamResponse{}, err
 	}
